@@ -1,0 +1,18 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+.idea/
+.vscode/
+.DS_Store
+
+# Raw downloaded data
+data/raw/
+
+# Tool caches
+.ruff_cache/
+.pytest_cache/
+
+# Logs
+*.log
