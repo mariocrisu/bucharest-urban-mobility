@@ -63,7 +63,7 @@ This architecture keeps the original PostgreSQL implementation as a separate rel
 
 ## Data Sources
 
-### GTFS Static — TPBI
+### GTFS Static: TPBI
 
 Static public transport schedule and network data for the Bucharest region.
 
@@ -79,7 +79,7 @@ The pipeline processes seven core GTFS entities:
 
 A single GTFS snapshot contains roughly **1.6 million rows**, with `stop_times` representing the largest dataset.
 
-### GTFS-Realtime — TPBI
+### GTFS-Realtime: TPBI
 
 Three GTFS-Realtime protobuf feeds are collected:
 
@@ -89,7 +89,7 @@ Three GTFS-Realtime protobuf feeds are collected:
 
 Raw protobuf responses are preserved before parsing so that the original source payload remains available.
 
-### Weather — Open-Meteo
+### Weather: Open-Meteo
 
 Hourly weather data is collected for a representative point in Bucharest.
 
@@ -203,9 +203,7 @@ Static GTFS fields are converted into appropriate analytical types while preserv
 
 GTFS schedule times require special handling because valid GTFS times can exceed `24:00:00`.
 
-For this reason, the pipeline preserves the original time strings and additionally calculates service-day seconds such as:
-
-`arrival_seconds` and `departure_seconds`.
+For this reason, the pipeline preserves the original time strings and additionally calculates service-day seconds such as `arrival_seconds` and `departure_seconds`.
 
 ### GTFS-Realtime
 
@@ -241,8 +239,8 @@ It calculates **predicted schedule deviation**, not actual observed arrival dela
 
 The pipeline explicitly handles the timezone difference between:
 
-- GTFS Static schedules — `Europe/Bucharest`
-- GTFS-Realtime Unix timestamps — UTC
+- GTFS Static schedules: `Europe/Bucharest`
+- GTFS-Realtime Unix timestamps: UTC
 
 Successive predictions for the same trip and stop are preserved, allowing changes in predicted schedule deviation to be analyzed over time.
 
