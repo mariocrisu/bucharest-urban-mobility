@@ -3,55 +3,41 @@ from pathlib import Path
 
 import requests
 
+GTFS_URL = "https://gtfs.tpbi.ro/regional/BUCHAREST-REGION.zip"
+RAW_DIR = Path("data/raw")
+ZIP_PATH = RAW_DIR / "gtfs.zip"
+EXTRACT_PATH = RAW_DIR / "gtfs"
+
 
 def download_gtfs():
-
-    Path("data/raw").mkdir(
-        parents=True, exist_ok=True
-    )  # Create the directory if it doesn't exist
-
-    url = "https://gtfs.tpbi.ro/regional/BUCHAREST-REGION.zip"  # URL of the GTFS data
+    RAW_DIR.mkdir(parents=True, exist_ok=True)
 
     try:
-        response = requests.get(
-            url, timeout=30
-        )  # Make a GET request to the URL with a timeout of 30 seconds
+        response = requests.get(GTFS_URL, timeout=30)
         response.raise_for_status()
 
-        with open(
-            "data/raw/gtfs.zip", "wb"
-        ) as file:  # Open the file in binary write mode
-            file.write(response.content)
+        ZIP_PATH.write_bytes(response.content)
         return True
 
-    except (
-        requests.exceptions.RequestException
-    ) as error:  # Handle any exceptions that occur during the request
+    except requests.exceptions.RequestException as error:
         print(f"Failed to download GTFS: {error}")
         return False
 
 
 def extract_gtfs():
     try:
-        with zipfile.ZipFile(
-            "data/raw/gtfs.zip", "r"
-        ) as zip_ref:  # Open the downloaded zip file
-            zip_ref.extractall(
-                "data/raw/gtfs"
-            )  # Extract the contents to the specified directory
+        with zipfile.ZipFile(ZIP_PATH, "r") as zip_ref:
+            zip_ref.extractall(EXTRACT_PATH)
 
-    except (
-        zipfile.BadZipFile
-    ) as error:  # Handle any exceptions that occur during extraction
+    except zipfile.BadZipFile as error:
         print(f"Failed to extract GTFS: {error}")
 
 
 def main():
-    if (
-        download_gtfs()
-    ):  # Call the download_gtfs function and check if it was successful
-        extract_gtfs()  # Call the extract_gtfs function if the download was successful
+    if download_gtfs():
+        extract_gtfs()
+        print(f"GTFS extracted to {EXTRACT_PATH}")
 
 
 if __name__ == "__main__":
-    main()  # Call the main function if the script is run directlyv
+    main()

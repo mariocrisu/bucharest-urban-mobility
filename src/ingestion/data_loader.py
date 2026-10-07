@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
 GTFS_TABLES = {
     "agency": {
         "file": "data/raw/gtfs/agency.txt",
@@ -35,11 +36,76 @@ GTFS_TABLES = {
             "level_id",
         ],
     },
+    "routes": {
+        "file": "data/raw/gtfs/routes.txt",
+        "columns": [
+            "route_id",
+            "agency_id",
+            "route_short_name",
+            "route_long_name",
+            "route_type",
+            "route_color",
+            "route_text_color",
+        ],
+    },
+    "calendar": {
+        "file": "data/raw/gtfs/calendar.txt",
+        "columns": [
+            "service_id",
+            "monday",
+            "tuesday",
+            "wednesday",
+            "thursday",
+            "friday",
+            "saturday",
+            "sunday",
+            "start_date",
+            "end_date",
+        ],
+    },
+    "trips": {
+        "file": "data/raw/gtfs/trips.txt",
+        "columns": [
+            "route_id",
+            "service_id",
+            "trip_id",
+            "trip_headsign",
+            "trip_short_name",
+            "direction_id",
+            "block_id",
+            "shape_id",
+            "wheelchair_accessible",
+            "bikes_allowed",
+        ],
+    },
+    "stop_times": {
+        "file": "data/raw/gtfs/stop_times.txt",
+        "columns": [
+            "trip_id",
+            "arrival_time",
+            "departure_time",
+            "stop_id",
+            "stop_sequence",
+            "stop_headsign",
+            "pickup_type",
+            "drop_off_type",
+            "shape_dist_traveled",
+            "timepoint",
+        ],
+    },
+    "shapes": {
+        "file": "data/raw/gtfs/shapes.txt",
+        "columns": [
+            "shape_id",
+            "shape_pt_lat",
+            "shape_pt_lon",
+            "shape_pt_sequence",
+        ],
+    },
 }
 
 
 def calculate_file_hash(file_path):
-    """Calculate the SHA-256 hash of a file."""
     hasher = hashlib.sha256()
 
     with open(file_path, "rb") as file:
@@ -50,24 +116,20 @@ def calculate_file_hash(file_path):
 
 
 def connect_to_db():
-    """Connect to the PostgreSQL database."""
     try:
-        connection = psycopg.connect(
+        return psycopg.connect(
             host="localhost",
             port=5432,
             dbname=os.getenv("POSTGRES_DB"),
             user=os.getenv("POSTGRES_USER"),
             password=os.getenv("POSTGRES_PASSWORD"),
         )
-        return connection
-
     except psycopg.OperationalError as error:
         print(f"Failed to connect to the database: {error}")
         return None
 
 
 def batch_exists(connection, file_hash):
-    """Check whether a GTFS file has already been ingested."""
     with connection.cursor() as cursor:
         cursor.execute(
             """
@@ -78,13 +140,10 @@ def batch_exists(connection, file_hash):
             (file_hash,),
         )
 
-        result = cursor.fetchone()
-
-    return result is not None
+        return cursor.fetchone() is not None
 
 
 def create_batch(connection, source, file_hash):
-    """Create a new ingestion batch and return its ID."""
     with connection.cursor() as cursor:
         cursor.execute(
             """
@@ -95,14 +154,22 @@ def create_batch(connection, source, file_hash):
             (source, file_hash),
         )
 
-        result = cursor.fetchone()
-
-    return result[0]
+        return cursor.fetchone()[0]
 
 
-def load_gtfs_file(connection, batch_id, file_path, table_name, columns):
-    """Load a GTFS file into its corresponding raw table."""
-    with open(file_path, "r", encoding="utf-8-sig", newline="") as file:
+def load_gtfs_file(
+    connection,
+    batch_id,
+    file_path,
+    table_name,
+    columns,
+):
+    with open(
+        file_path,
+        "r",
+        encoding="utf-8-sig",
+        newline="",
+    ) as file:
         reader = csv.DictReader(file)
 
         column_list = ", ".join(["batch_id"] + columns)
@@ -112,9 +179,15 @@ def load_gtfs_file(connection, batch_id, file_path, table_name, columns):
             FROM STDIN
         """
 
-        with connection.cursor() as cursor, cursor.copy(copy_query) as copy:
+        with (
+            connection.cursor() as cursor,
+            cursor.copy(copy_query) as copy,
+        ):
             for row in reader:
-                values = [batch_id] + [row[column] for column in columns]
+                values = [
+                    batch_id,
+                    *[row[column] for column in columns],
+                ]
                 copy.write_row(values)
 
 
@@ -123,31 +196,35 @@ def main():
     source = "TPBI_GTFS_STATIC"
 
     file_hash = calculate_file_hash(gtfs_zip_path)
-    print(f"GTFS file hash: {file_hash}")
 
     connection = connect_to_db()
 
-    if connection:
-        with connection:
-            if batch_exists(connection, file_hash):
-                print("This GTFS batch has already been ingested.")
-                return
+    if connection is None:
+        raise RuntimeError("Could not connect to PostgreSQL.")
 
-            batch_id = create_batch(connection, source, file_hash)
+    with connection:
+        if batch_exists(connection, file_hash):
+            print("SKIP: GTFS snapshot already ingested.")
+            return
 
-            for table_name, config in GTFS_TABLES.items():
-                load_gtfs_file(
-                    connection=connection,
-                    batch_id=batch_id,
-                    file_path=config["file"],
-                    table_name=table_name,
-                    columns=config["columns"],
-                )
+        batch_id = create_batch(
+            connection,
+            source,
+            file_hash,
+        )
 
-            print(f"GTFS batch {batch_id} successfully ingested.")
+        for table_name, config in GTFS_TABLES.items():
+            load_gtfs_file(
+                connection=connection,
+                batch_id=batch_id,
+                file_path=config["file"],
+                table_name=table_name,
+                columns=config["columns"],
+            )
 
-    else:
-        print("Failed to connect to the database.")
+            print(f"LOADED {table_name}")
+
+        print(f"GTFS batch {batch_id} successfully ingested.")
 
 
 if __name__ == "__main__":
