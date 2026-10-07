@@ -318,6 +318,12 @@ The branches can execute independently where dependencies allow it.
 
 The Gold stop-delay dataset requires both static schedules and parsed realtime predictions, while the final route-weather mart requires both stop-level performance observations and normalized weather data.
 
+#### Successful Pipeline Run
+
+The pipeline was successfully executed as a seven-task Databricks Job using dependency-based orchestration and serverless compute.
+
+![Databricks pipeline successful run](docs/databricks-pipeline-run.png)
+
 ---
 
 ## Data Quality and Reliability
